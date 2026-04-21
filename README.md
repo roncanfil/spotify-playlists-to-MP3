@@ -1,277 +1,201 @@
-# 🎵 From Spotify Playlists to MP3
+# 🎵 From Spotify Playlists to MP3 / FLAC
 
-A Python script that downloads songs from YouTube and converts them to MP3 files with proper metadata, using Spotify playlist data exported as CSV files.
+A Python script that downloads songs from YouTube using Spotify playlist data exported as CSV files. It writes **MP3** (default) or **FLAC** with embedded metadata and skips tracks you already have.
 
 ## 🚀 Features
 
-- **Smart Playlist Processing**: Uses CSV files exported from Spotify playlists
-- **YouTube Integration**: Automatically searches and downloads from YouTube
-- **Rich Metadata**: Embeds artist, song, album, and YouTube URL into MP3 files
-- **Duplicate Prevention**: Skips already downloaded songs for incremental updates
-- **Dynamic Organization**: Creates folders named after your playlists
-- **Clean Interface**: Beautiful progress indicators and loading animations
-- **Command-Line Ready**: Simple command-line interface for easy automation
+- **Smart playlist processing**: CSV files exported from Spotify (e.g. via Exportify)
+- **YouTube integration**: Searches with `ytsearch1` and downloads the best match
+- **Formats**: **MP3 @ 192 kbps** by default, or **FLAC** (best available audio stream) via an optional argument
+- **Rich metadata**: Title, artist, album, and original YouTube URL (via FFmpeg)
+- **Duplicate prevention**: Skips files that already exist for the chosen format
+- **Folder layout**: Output folder named after the CSV filename (without extension)
+- **CLI**: `python download.py playlist.csv` or `python download.py playlist.csv flac`
 
 ## 📋 Prerequisites
 
-- Python 3.7 or higher
+- Python 3.8+ recommended (3.7 may work; use a current Python for best compatibility)
 - Internet connection
-- FFmpeg (for audio conversion)
+- FFmpeg (for conversion and metadata)
+- A recent **yt-dlp** (YouTube changes often; upgrade if downloads fail with HTTP 403)
 
 ## 🛠️ Installation
 
-### 1. Check if Python is Installed
+### 1. Python
 
-First, verify that Python is installed on your system:
-
-**Check Python version:**
-```bash
-python --version
-```
-
-**Or try:**
 ```bash
 python3 --version
 ```
 
-You should see output like `Python 3.7.x` or higher. If you get a "command not found" error, you need to install Python first.
+Install if needed: [python.org](https://www.python.org/downloads/) or `brew install python` on macOS.
 
-**Install Python:**
-- **macOS**: Download from [python.org](https://www.python.org/downloads/) or use Homebrew: `brew install python`
-- **Windows**: Download from [python.org](https://www.python.org/downloads/)
-- **Linux**: Usually pre-installed, or use your package manager: `sudo apt install python3`
+### 2. Dependencies
 
-### 2. Install Python Dependencies
+Using a virtual environment is recommended:
 
 ```bash
-pip install pandas yt-dlp
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -U pip
+pip install pandas "yt-dlp[default]"
 ```
 
-### 3. Install FFmpeg
+`yt-dlp[default]` pulls in optional pieces (e.g. EJS helpers) that YouTube extraction often needs.
 
-**macOS (using Homebrew):**
+### 3. FFmpeg
+
+**macOS (Homebrew):**
+
 ```bash
 brew install ffmpeg
 ```
 
-**Windows:**
-- Download from [FFmpeg official website](https://ffmpeg.org/download.html)
-- Add to your system PATH
+**Windows:** [FFmpeg downloads](https://ffmpeg.org/download.html) — add `ffmpeg` to your PATH.
 
-**Linux (Ubuntu/Debian):**
+**Linux (Debian/Ubuntu):**
+
 ```bash
-sudo apt update
-sudo apt install ffmpeg
+sudo apt update && sudo apt install ffmpeg
 ```
 
-## 📊 Step 1: Export Your Spotify Playlist
+## 📊 Step 1: Export your Spotify playlist
 
-1. Go to [Exportify](https://exportify.app/)
-2. Log in with your Spotify account
-3. Select the playlist you want to download
-4. Click "Export" to download the CSV file
-5. Save the CSV file to your desired location
+1. Open [Exportify](https://exportify.app/)
+2. Log in with Spotify
+3. Choose a playlist and export CSV
+4. Save the file where you will run the script
 
-> **Note**: Exportify is a third-party service that exports your Spotify playlists as CSV files. Make sure you trust the service before logging in.
+> Exportify is a third-party site; only use it if you are comfortable signing in there.
 
-## 🎯 Step 2: Download Your Music
+## 🎯 Step 2: Download your music
 
-### Basic Usage
+### MP3 (default, 192 kbps)
 
 ```bash
 python download.py your_playlist.csv
 ```
 
+### FLAC (best audio stream YouTube offers, written as `.flac`)
+
+```bash
+python download.py your_playlist.csv flac
+```
+
+`flac` must be the **second** argument exactly (see `python download.py -h`).
+
 ### Examples
 
 ```bash
-# Download from a playlist called "Summer Hits"
 python download.py summer_hits.csv
-
-# Download from a playlist in another folder
 python download.py /path/to/my_playlist.csv
-
-# Download from multiple playlists
-python download.py rock_classics.csv
-python download.py jazz_favorites.csv
+python download.py rock_classics.csv flac
 ```
 
-## 📁 Output Structure
+On startup the script prints the output folder and format, for example:
 
-The script creates organized folders based on your playlist names:
+- `Format: MP3 @ 192 kbps`
+- `Format: FLAC (bestaudio → flac, lossless container)`
 
-```
+YouTube streams are usually lossy; FLAC mode avoids an extra **lossy** encode (MP3) and stores the decoded audio in a lossless container. It does not invent detail beyond the source stream.
+
+## 📁 Output structure
+
+The script creates a folder named after the CSV (filename without `.csv`):
+
+**MP3:**
+
+```text
 your_playlist/
 ├── Artist Name - Song Title.mp3
-├── Another Artist - Another Song.mp3
 └── ...
 ```
 
-**Example:**
-```
-summer_hits/
-├── The Chainsmokers - Something Just Like This.mp3
-├── Coldplay - Viva La Vida.mp3
-└── Ed Sheeran - Shape of You.mp3
-```
+**FLAC:**
 
-## 🎵 MP3 Metadata
-
-Each downloaded MP3 file includes:
-
-- **Title**: Song name from Spotify
-- **Artist**: Artist name from Spotify
-- **Album**: Album name from Spotify
-- **Comment**: Original YouTube URL
-
-## 🔄 Incremental Downloads
-
-One of the best features is **duplicate prevention**:
-
-- ✅ **First run**: Downloads all songs from the playlist
-- ✅ **Subsequent runs**: Only downloads new songs you've added
-- ✅ **Smart skipping**: Shows which songs already exist
-
-### Example Output
-
-```
-📁 Output directory: my_playlist
-📊 Found 100 songs in playlist
-==================================================
-⏭️  Skipping (already exists): The Chainsmokers - Something Just Like This
-🎵 Downloading: New Artist - New Song
-   Album: New Album
-🎵 Downloading: New Artist - New Song... ✅
-==================================================
-📈 Summary:
-   Total songs: 100
-   Downloaded: 2
-   Skipped (already exist): 98
+```text
+your_playlist/
+├── Artist Name - Song Title.flac
+└── ...
 ```
 
-## 🎨 Progress Indicators
+Skip logic is per extension: a track skipped as existing `.mp3` is not skipped automatically when you re-run in FLAC mode (and vice versa).
 
-The script provides beautiful visual feedback:
+## 🎵 Metadata
 
-- **📁** Shows output directory
-- **📊** Displays total songs found
-- **⏭️** Indicates skipped songs (already exist)
-- **🎵** Shows downloading progress with animated dots
-- **✅** Confirms successful downloads
-- **❌** Reports any errors
-- **📈** Final summary with statistics
+Embedded fields (MP3 and FLAC):
 
-## 🔧 Advanced Usage
+- **Title** — track from CSV  
+- **Artist** — artist from CSV  
+- **Album** — album from CSV  
+- **Comment** — original YouTube URL (when resolved)
 
-### Custom CSV Column Names
+## 🔄 Incremental downloads
 
-If your CSV file uses different column names, modify these lines in the script:
+- First run: downloads all missing tracks  
+- Later runs: only new rows / missing files  
+- Skipped tracks are listed with ⏭️  
+
+## 🎨 Progress output
+
+The script prints folder, counts, album lines, per-song download lines with a spinner, ✅ / ❌ per track, and a short summary at the end.
+
+## 🔧 Advanced usage
+
+### CSV column names
+
+If your export uses different headers, edit these in `download.py`:
 
 ```python
-track_col = "Track Name"        # Change to your track column name
-artist_col = "Artist Name(s)"   # Change to your artist column name
-album_col = "Album Name"        # Change to your album column name
+track_col = "Track Name"
+artist_col = "Artist Name(s)"
+album_col = "Album Name"
 ```
 
-### Changing MP3 Quality
+### Changing MP3 bitrate
 
-By default, the script downloads MP3s at 320 kbps (highest quality). To change the quality for smaller file sizes, modify line 67 in the `create_ydl_opts` function:
+Default is **192** kbps in `create_ydl_opts` (MP3 branch), key `preferredquality`. Typical values: `'128'`, `'192'`, `'256'`, `'320'`.
 
-```python
-'preferredquality': '320',  # Change this value
-```
+### Batch processing
 
-**Quality Options:**
-- `'320'` - Highest quality (default, ~10-15 MB per song)
-- `'256'` - High quality (~8-12 MB per song)
-- `'192'` - Good quality (~6-9 MB per song)
-- `'128'` - Standard quality (~4-6 MB per song)
-- `'96'` - Lower quality (~3-4 MB per song)
+**macOS / Linux:**
 
-**Example for smaller files:**
-```python
-'preferredquality': '192',  # Good quality with smaller file size
-```
-
-### Batch Processing
-
-Create a simple batch script to process multiple playlists:
-
-**Windows (batch_convert.bat):**
-```batch
-@echo off
-python download.py playlist1.csv
-python download.py playlist2.csv
-python download.py playlist3.csv
-pause
-```
-
-**macOS/Linux (batch_convert.sh):**
 ```bash
 #!/bin/bash
 python download.py playlist1.csv
-python download.py playlist2.csv
-python download.py playlist3.csv
+python download.py playlist2.csv flac
 ```
+
+**Windows:** same commands in a `.bat` file.
 
 ## 🚨 Troubleshooting
 
-### Common Issues
+| Issue | What to try |
+|--------|-------------|
+| FFmpeg not found | `ffmpeg -version`; fix PATH or install FFmpeg |
+| CSV not found | Check path; quote paths with spaces |
+| `HTTP Error 403` / download fails | `pip install -U "yt-dlp[default]"` |
+| No audio / odd failures | Video may be blocked or audio-less; try another upload |
 
-**"FFmpeg not found" error:**
-- Make sure FFmpeg is installed and in your system PATH
-- Test with: `ffmpeg -version`
+## 📝 CSV format (Exportify)
 
-**"CSV file not found" error:**
-- Check the file path is correct
-- Make sure the CSV file exists
+Expected columns:
 
-**"No audio format found" error:**
-- Some YouTube videos may not have audio
-- The script will skip these and continue
+- `Track Name`
+- `Artist Name(s)`
+- `Album Name`
 
-**"Permission denied" error:**
-- Make sure you have write permissions in the output directory
-- Try running with administrator/sudo privileges if needed
+## ⚖️ Legal notice
 
-### Getting Help
-
-If you encounter issues:
-
-1. Check that all dependencies are installed correctly
-2. Verify your CSV file format matches the expected columns
-3. Ensure you have a stable internet connection
-4. Check that the YouTube videos are available and not region-locked
-
-## 📝 CSV File Format
-
-The script expects CSV files with these columns (from Exportify):
-
-- `Track Name`: The name of the song
-- `Artist Name(s)`: The artist(s) who performed the song
-- `Album Name`: The album the song belongs to
-
-## ⚖️ Legal Notice
-
-This tool is for personal use only. Please respect:
-
-- **Copyright laws** in your country
-- **YouTube's Terms of Service**
-- **Spotify's Terms of Service**
-- **Artist and label rights**
-
-Only download music you have the right to access or own.
+For **personal use** only. Respect copyright, YouTube’s and Spotify’s terms, and rights holders. Only download what you are allowed to use.
 
 ## 🤝 Contributing
 
-Feel free to submit issues, feature requests, or pull requests to improve this tool!
+Issues and pull requests welcome.
 
 ## 📄 License
 
-This project is for educational purposes. Use at your own risk and ensure compliance with applicable laws and terms of service.
+Educational / personal tooling. Use at your own risk and comply with applicable law and terms of service.
 
 ---
 
-**Happy downloading! 🎵**
-
-*Made with ❤️ for music lovers who want to enjoy their playlists offline.*
+**Happy downloading.**

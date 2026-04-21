@@ -28,11 +28,12 @@ class LoadingSpinner:
         self.thread.daemon = True
         self.thread.start()
     
-    def stop(self):
+    def stop(self, ok=True):
         self.running = False
         if self.thread:
             self.thread.join()
-        print(f"\r{self.message}... ✅", flush=True)
+        suffix = "✅" if ok else "❌"
+        print(f"\r{self.message}... {suffix}", flush=True)
 
 def get_output_dir(csv_file):
     """Get output directory name from CSV filename"""
@@ -45,27 +46,35 @@ def sanitize_filename(filename):
     """Remove invalid characters from filename"""
     return re.sub(r'[<>:"/\\|?*]', '', filename)
 
-def song_exists(output_dir, artist, track):
+def song_exists(output_dir, artist, track, ext):
     """Check if song already exists in the output directory"""
     filename = sanitize_filename(f"{artist} - {track}")
-    mp3_path = os.path.join(output_dir, f"{filename}.mp3")
-    return os.path.exists(mp3_path)
+    path = os.path.join(output_dir, f"{filename}.{ext}")
+    return os.path.exists(path)
 
-def create_ydl_opts(output_dir, artist, track, album, youtube_url):
+def create_ydl_opts(output_dir, artist, track, album, youtube_url, use_flac):
     """Create yt-dlp options with custom metadata"""
     filename = sanitize_filename(f"{artist} - {track}")
-    
+
+    if use_flac:
+        extract_pp = {
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'flac',
+        }
+    else:
+        extract_pp = {
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }
+
     return {
         'format': 'bestaudio/best',
         'outtmpl': f'{output_dir}/{filename}.%(ext)s',
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '320',
-        }, {
+        'postprocessors': [extract_pp, {
             'key': 'FFmpegMetadata',
             'add_metadata': True,
         }],
@@ -83,7 +92,7 @@ def create_ydl_opts(output_dir, artist, track, album, youtube_url):
         }
     }
 
-def download_song(output_dir, query, artist, track, album):
+def download_song(output_dir, query, artist, track, album, use_flac):
     """Download song with custom metadata"""
     # First, get the YouTube URL
     with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}) as ydl:
@@ -97,7 +106,7 @@ def download_song(output_dir, query, artist, track, album):
             youtube_url = "Unknown"
     
     # Create custom options with metadata
-    opts = create_ydl_opts(output_dir, artist, track, album, youtube_url)
+    opts = create_ydl_opts(output_dir, artist, track, album, youtube_url, use_flac)
     
     # Start loading spinner
     spinner = LoadingSpinner(f"🎵 Downloading: {query}")
@@ -107,17 +116,28 @@ def download_song(output_dir, query, artist, track, album):
         # Download with custom metadata
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([f"ytsearch1:{query}"])
-        spinner.stop()
+        spinner.stop(ok=True)
     except Exception as e:
-        spinner.stop()
+        spinner.stop(ok=False)
         raise e
 
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Download songs from YouTube using CSV playlist')
+    parser = argparse.ArgumentParser(
+        description='Download songs from YouTube using CSV playlist',
+        epilog='Example: python download.py playlist.csv flac',
+    )
     parser.add_argument('playlist_file', help='Path to the CSV playlist file')
+    parser.add_argument(
+        'format_flag',
+        nargs='?',
+        default=None,
+        choices=['flac'],
+        help='Optional: pass "flac" for lossless FLAC (best available source audio)',
+    )
     args = parser.parse_args()
-    
+
+    use_flac = args.format_flag == 'flac'
     csv_file = args.playlist_file
     
     # Check if CSV file exists
@@ -131,6 +151,10 @@ def main():
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     print(f"📁 Output directory: {output_dir}")
+    if use_flac:
+        print("🎼 Format: FLAC (bestaudio → flac, lossless container)")
+    else:
+        print("🎼 Format: MP3 @ 192 kbps")
     
     # Load CSV
     try:
@@ -161,15 +185,16 @@ def main():
         
         query = f"{artist} - {track}"
         
+        ext = 'flac' if use_flac else 'mp3'
         # Check if song already exists
-        if song_exists(output_dir, artist, track):
+        if song_exists(output_dir, artist, track, ext):
             print(f"⏭️  Skipping (already exists): {query}")
             skipped_count += 1
             continue
         
         print(f"   Album: {album}")
         try:
-            download_song(output_dir, query, artist, track, album)
+            download_song(output_dir, query, artist, track, album, use_flac)
             downloaded_count += 1
         except Exception as e:
             print(f"❌ Error with {query}: {e}")
